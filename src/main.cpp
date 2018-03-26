@@ -44,11 +44,11 @@ const uint8_t channel = 101;
 static uint16_t count = 0;
 
 typedef struct data{
-  uint16_t x1Val;
-  uint16_t y1Val;  // 12-bit ADC
+  uint8_t x1Val;
+  uint8_t y1Val;  // 12-bit ADC
   uint8_t btn1State;
-  uint16_t x2Val;
-  uint16_t y2Val;  // 12-bit ADC
+  uint8_t x2Val;
+  uint8_t y2Val;  // 12-bit ADC
   uint8_t btn2State;
 } data_t;
   data_t gsData;
@@ -124,3 +124,57 @@ void loop() {
 
 //  delay(200);
 }
+
+
+// =============================================
+//  raspberry pi 3b code
+// =============================================
+
+/*
+'''
+pins:
+nRF24L01+	PI (phys. num.)
+-----------------
+V+			1
+GND			6
+CSN			24
+CE			15
+MOSI		19
+SCK			23
+IRQ			-
+MISO		21
+'''
+
+import RPi.GPIO as GPIO
+from RF24 import *
+import time
+import spidev
+import struct
+
+GPIO.setmode(GPIO.BCM)
+
+pipe = 0xF0F0F0F0A1
+
+radio = RF24(22, 0)	 #????
+radio.begin()
+radio.setChannel(101)	# 2,4GHz -> 2,525 GHz (0...124), same channel as sender
+radio.setPALevel(RF24_PA_MAX)
+
+#radio.printDetails()
+
+radio.openReadingPipe(0, pipe)
+radio.startListening()
+
+while(1):
+	if radio.available():
+		receivedMessage = radio.read(6)	# read 11 bytes
+		receivedData = struct.unpack("bbbbbb", receivedMessage)	# unpack received data
+		x1_val = receivedData[0]
+		y1_val = receivedData[1]
+		btn1_State = receivedData[2]
+		x2_val = receivedData[3]
+		y2_val = receivedData[4]
+		btn2_State = receivedData[5]
+
+		print("x1: {0} y1: {1} btn1: {2} 	x2: {3} y2:{4} btn2:{5}".format(x1_val, y1_val, btn1_State, x2_val, y2_val, btn2_State))
+*/
