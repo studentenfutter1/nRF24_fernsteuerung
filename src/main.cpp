@@ -1,3 +1,10 @@
+//  output: values from 0 to 100, where 50
+//  is the middle position of the thumbsticks
+
+// TBD: DIP Switch. Set PA_LEVEl via switch
+// set channel via switch
+// change to smaller datatypes
+
 /*
   nRF24     ESP32
   -----------------
@@ -16,22 +23,24 @@
 #include <SPI.h>
 #include "RF24.h"
 
-
 //=======================
 //    #defines
 //=======================
 
-#define X1PIN 32
-#define Y1PIN 33
+#define SERIALDEBUG
+
+#define X1PIN 33
+#define Y1PIN 32
 #define BTN1PIN 34
-#define X2PIN 25
-#define Y2PIN 26
+#define X2PIN 26
+#define Y2PIN 25
 #define BTN2PIN 27
 
 //=======================
 //    globals
 //=======================
 
+const uint8_t channel = 101;
 static uint16_t count = 0;
 
 typedef struct data{
@@ -43,6 +52,14 @@ typedef struct data{
   uint8_t btn2State;
 } data_t;
   data_t gsData;
+
+uint8_t x1Offset = 0;
+uint8_t y1Offset = 0;
+uint8_t x2Offset = 0;
+uint8_t y2Offset = 0;
+
+const uint8_t upperDeadzone = 55;
+const uint8_t lowerDeadzone = 45;
 
 /* Hardware configuration: Set up nRF24L01 radio on SPI bus*/
 // dont use HSPI pins
@@ -57,7 +74,10 @@ const uint64_t pipe = 0xF0F0F0F0A1LL;
 //=======================
 
 void setup() {
-  //Serial.begin(9600);
+  #ifdef SERIALDEBUG
+    Serial.begin(9600);
+  #endif
+
   pinMode(X1PIN, INPUT);
   pinMode(Y1PIN, INPUT);
   pinMode(BTN1PIN, INPUT);
@@ -69,33 +89,38 @@ void setup() {
   gsData.btn2State = 0;
 
   radio.begin();
-  radio.setPALevel(RF24_PA_MIN);
-  radio.setChannel(101);  // 2,4GhZ -> 2,525 GhZ (0 ... 124)
+  radio.setPALevel(RF24_PA_MAX);
+  radio.setChannel(channel);  // 2,4GhZ -> 2,525 GhZ (0 ... 124)
   radio.openWritingPipe(pipe);
-//  radio.printDetails();
 }
 
 void loop() {
-/*  if(count < 100)
-      count++;
-  else
-    count = 0;
-*/
-  gsData.x1Val = analogRead(X1PIN);
-  gsData.y1Val = analogRead(Y1PIN);
+  gsData.x1Val = map(analogRead(X1PIN), 0, 4095, 100, 0) ;
+  gsData.y1Val = map(analogRead(Y1PIN), 0, 4095, 0, 100) ;
   gsData.btn1State = digitalRead(BTN1PIN);
-  gsData.x2Val = analogRead(X2PIN);
-  gsData.y2Val = analogRead(Y2PIN);
+  gsData.x2Val = map(analogRead(X2PIN), 0, 4095, 100, 0) ;
+  gsData.y2Val = map(analogRead(Y2PIN), 0, 4095, 0, 100) ;
   gsData.btn2State = digitalRead(BTN2PIN);
 
-  radio.write(&gsData, sizeof(gsData));
+  if(gsData.x1Val <= upperDeadzone && gsData.x1Val >= lowerDeadzone)
+    gsData.x1Val = 50;
+  if(gsData.y1Val <= upperDeadzone && gsData.y1Val >= lowerDeadzone)
+    gsData.y1Val = 50;
+  if(gsData.x2Val <= upperDeadzone && gsData.x2Val >= lowerDeadzone)
+    gsData.x2Val = 50;
+  if(gsData.y2Val <= upperDeadzone && gsData.y2Val >= lowerDeadzone)
+    gsData.y2Val = 50;
 
-/*  Serial.print("x1: "); Serial.print(gsData.x1Val);
+#ifdef SERIALDEBUG
+  Serial.print("x1: "); Serial.print(gsData.x1Val);
   Serial.print("   y1: "); Serial.print(gsData.y1Val);
   Serial.print("   btn1: "); Serial.print(gsData.btn1State);
   Serial.print("   x2: "); Serial.print(gsData.x2Val);
   Serial.print("   y2: "); Serial.print(gsData.y2Val);
-  Serial.print("   btn2: "); Serial.println(gsData.btn2State);*/
-  //radio.write(&count, sizeof(count));
-  delay(200);
+  Serial.print("   btn2: "); Serial.println(gsData.btn2State);
+#endif
+
+  radio.write(&gsData, sizeof(gsData));
+
+//  delay(200);
 }
